@@ -79,7 +79,7 @@ def get_transcript(video_id):
     try:
         api = YouTubeTranscriptApi()
         # By default, fetch tries "en" first. You can add more languages if needed.
-        transcript_obj = api.fetch(video_id, languages=["en", "en-US", "en-GB"])
+        transcript_obj = api.fetch(video_id, languages=["en", "hi", "en-IN", "en-US", "en-GB", "hinglish"])
         transcript = " ".join([snippet.text for snippet in transcript_obj.snippets])
         return transcript
     except Exception as e:
