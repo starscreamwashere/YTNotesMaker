@@ -175,7 +175,7 @@ def execute_chat(request: schemas.ChatCreate, db: Session = Depends(database.get
 
     formatted_history.append({
         "role": "user",
-        "parts": [{"text": f"Here is the context/transcript from all videos in this session:\n{combined_transcripts}\n\nPlease help me answer questions related to it. Important Rules for Answering: 1) Use Markdown tables to organize data when comparing information or lists. 2) When explaining complex concepts, architectures, or workflows, PLEASE include a Mermaid.js diagram using ```mermaid code blocks. 3) Always provide clear, well-formatted markdown."}]
+        "parts": [{"text": f"Here is the context/transcript from all videos in this session:\n{combined_transcripts}\n\nPlease help me answer questions related to it. Important Rules for Answering: 1) Use Markdown tables to organize data when comparing information or lists. 2) When explaining complex concepts, architectures, or workflows, PLEASE include a Mermaid.js diagram using ```mermaid code blocks. 3) Always provide clear, well-formatted markdown. 4) For Mermaid diagrams, ONLY use `graph TD` style flowcharts and avoid using square brackets `[` or `]` inside node text; use round brackets instead."}]
     })
     formatted_history.append({
          "role": "model",

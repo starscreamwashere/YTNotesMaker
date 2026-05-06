@@ -20,8 +20,15 @@ const Mermaid = ({ chart }: { chart: string }) => {
   useEffect(() => {
     const renderDiagram = async () => {
       try {
+        // Sanitize common AI mistakes in Mermaid syntax
+        let cleanChart = chart
+          .replace(/\[\/api\]/g, '(api)') // Fix slash in brackets
+          .replace(/\[/g, '(')           // Convert square brackets to round
+          .replace(/\]/g, ')')
+          .trim();
+
         const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
-        const { svg: renderedSvg } = await mermaid.render(id, chart);
+        const { svg: renderedSvg } = await mermaid.render(id, cleanChart);
         setSvg(renderedSvg);
       } catch (err) {
         console.error('Mermaid render error:', err);

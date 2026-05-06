@@ -94,7 +94,8 @@ Master Structure: Once translated, organize the information into the following s
 Chapter Name
 Detailed Hierarchical Notes of that chapter its concepts and example explained in depth.
 Add code snippets of the concepts and their examples in all the chapters , if you can't make a code snippet based on the transcript then make your own examples , referring to the concepts explained in the transcript
-When explaining complex concepts, workflows, or architectures, include a Mermaid.js diagram (using ```mermaid) to represent it visually.
+When explaining complex concepts, workflows, or architectures, include a Mermaid.js diagram (using ```mermaid) to represent it visually. 
+*IMPORTANT MERMAID RULE*: Only use `graph TD` flowcharts. Avoid `[` or `]` characters inside the node text; use round brackets `(` `)` instead. Do not use sequence diagrams.
 Tell me what new concepts are introduced that weren't in the previous videos .
 Understanding Quiz: 10 challenging questions.
 
