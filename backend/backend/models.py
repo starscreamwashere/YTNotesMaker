@@ -49,6 +49,7 @@ class Note(Base):
     title = Column(String, nullable=True)
     markdown_notes = Column(Text)
     transcript = Column(Text, nullable=True)
+    last_read_position = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     session_id = Column(Integer, ForeignKey("sessions.id"))
     

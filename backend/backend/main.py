@@ -152,6 +152,37 @@ def get_notes(db: Session = Depends(database.get_db), current_user: models.User 
     session_ids = [s.id for s in sessions]
     return db.query(models.Note).filter(models.Note.session_id.in_(session_ids)).order_by(models.Note.created_at.desc()).all()
 
+@app.patch("/api/notes/{note_id}/bookmark", response_model=schemas.NoteResponse)
+def update_bookmark(note_id: int, position: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    note = db.query(models.Note).filter(models.Note.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    # Verify the session belongs to the user
+    session_obj = db.query(models.Session).filter(models.Session.id == note.session_id, models.Session.user_id == current_user.id).first()
+    if not session_obj:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    note.last_read_position = position
+    db.commit()
+    db.refresh(note)
+    return note
+
+@app.delete("/api/notes/{note_id}/bookmark", response_model=schemas.NoteResponse)
+def delete_bookmark(note_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    note = db.query(models.Note).filter(models.Note.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    session_obj = db.query(models.Session).filter(models.Session.id == note.session_id, models.Session.user_id == current_user.id).first()
+    if not session_obj:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    note.last_read_position = 0
+    db.commit()
+    db.refresh(note)
+    return note
+
 
 # --- Chat API ---
 

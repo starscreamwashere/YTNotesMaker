@@ -1,10 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Loader2, Send, Menu, Plus, X, MessageSquare, BookOpen } from 'lucide-react';
+import { Loader2, Send, Menu, Plus, X, MessageSquare, BookOpen, Bookmark, Trash2 } from 'lucide-react';
 import mermaid from 'mermaid';
 
 // Initialize mermaid once outside the component
@@ -100,6 +100,21 @@ export default function Dashboard() {
             setChatHistory(data.chats || []);
             localStorage.setItem('activeSessionId', data.id.toString());
             setSidebarOpen(false);
+
+            // Auto-scroll to the most recent bookmark after notes render
+            if (data.notes && data.notes.length > 0) {
+              const notesWithBookmarks = data.notes.filter((n: any) => n.last_read_position > 0);
+              if (notesWithBookmarks.length > 0) {
+                // Sort by creation or just pick the first one with a bookmark
+                const latestNote = notesWithBookmarks[0]; 
+                setTimeout(() => {
+                  notesContainerRef.current?.scrollTo({
+                    top: latestNote.last_read_position,
+                    behavior: 'smooth'
+                  });
+                }, 500); // Small delay to allow Markdown to render
+              }
+            }
         }
     } catch (err) {
         console.error(err);
@@ -113,6 +128,48 @@ export default function Dashboard() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const notesContainerRef = useRef<HTMLDivElement>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleSaveBookmark = async (noteId: number) => {
+    if (!notesContainerRef.current) return;
+    const scrollPos = notesContainerRef.current.scrollTop;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/notes/${noteId}/bookmark?position=${Math.round(scrollPos)}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast("Bookmark saved!");
+        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, last_read_position: Math.round(scrollPos) } : n));
+      }
+    } catch (err) {
+      showToast("Failed to save bookmark", "error");
+    }
+  };
+
+  const handleDeleteBookmark = async (noteId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/notes/${noteId}/bookmark`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast("Bookmark removed");
+        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, last_read_position: 0 } : n));
+      }
+    } catch (err) {
+      showToast("Failed to remove bookmark", "error");
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -270,11 +327,38 @@ export default function Dashboard() {
           </div>
 
           {/* Notes Area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
+          <div ref={notesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scroll-smooth">
             {notes.length > 0 ? (
               notes.map((note, idx) => (
-                <div key={idx} className="prose prose-invert max-w-none">
-                   {note.title && <h2 className="border-b border-zinc-700 pb-2 mb-4">{note.title}</h2>}
+                <div key={idx} id={`note-${note.id}`} className="prose prose-invert max-w-none relative group">
+                   <div className="flex items-center justify-between border-b border-zinc-700 pb-2 mb-4">
+                     {note.title && <h2 className="m-0">{note.title}</h2>}
+                     <div className="flex gap-2">
+                        {note.last_read_position > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded cursor-pointer hover:bg-blue-500/20"
+                               onClick={() => notesContainerRef.current?.scrollTo({top: note.last_read_position, behavior: 'smooth'})}>
+                            <Bookmark className="w-3 h-3 fill-current" />
+                            Saved Spot
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => handleSaveBookmark(note.id)}
+                          className="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition-colors"
+                          title="Save position"
+                        >
+                          <Bookmark className="w-4 h-4" />
+                        </button>
+                        {note.last_read_position > 0 && (
+                          <button 
+                            onClick={() => handleDeleteBookmark(note.id)}
+                            className="p-1.5 hover:bg-red-900/20 rounded-md text-zinc-500 hover:text-red-500 transition-colors"
+                            title="Delete bookmark"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                     </div>
+                   </div>
                    <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -379,6 +463,18 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-5 duration-300 ${
+          toast.type === 'success' ? 'bg-zinc-800 text-white border border-zinc-700' : 'bg-red-600 text-white'
+        }`}>
+          <div className="flex items-center gap-2">
+            {toast.type === 'success' ? <Bookmark className="w-4 h-4 text-blue-400 fill-current" /> : <X className="w-4 h-4" />}
+            <span className="text-sm font-medium">{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

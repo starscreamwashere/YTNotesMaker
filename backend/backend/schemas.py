@@ -27,6 +27,7 @@ class NoteResponse(BaseModel):
     video_url: str
     title: Optional[str]
     markdown_notes: str
+    last_read_position: int
     created_at: datetime
     session_id: int
 
