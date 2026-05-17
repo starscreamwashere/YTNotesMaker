@@ -1,6 +1,7 @@
 import os
 import re
 import urllib.parse
+import time
 from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from googleapiclient.discovery import build
@@ -86,7 +87,7 @@ def get_transcript(video_id):
         raise ValueError(f"Could not retrieve transcript: {e}")
 
 def generate_notes(transcript, chapters):
-    """Calls OpenAI API to generate notes."""
+    """Calls Gemini API to generate notes, with a workaround for large transcripts."""
     system_prompt = """You are an expert technical educator and master note-taker. I will provide a transcript of a video. Your goal is to process this information into a high-density, structured study guide so I can understand everything without watching the video.
 Your Task:
 Translate & Decipher: Translate the content into high-quality, professional English. If the speaker uses 'Hinglish' (mixing Hindi with English technical terms), ensure the technical terms are preserved and placed in the correct context.
@@ -107,11 +108,12 @@ Divide the video into following chapters:
     else:
         system_chapters = "\n".join(chapters)
 
-    prompt = system_prompt.format(chapters=system_chapters)
-
     model = genai.GenerativeModel('gemini-flash-latest')
+
+    prompt = system_prompt.format(chapters=system_chapters)
     full_prompt = f"{prompt}\n\nHere is the transcript:\n\n{transcript}"
     
+    # Final note generation
     response = model.generate_content(full_prompt)
     return response.text
 

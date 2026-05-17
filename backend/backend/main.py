@@ -12,6 +12,11 @@ from app import get_video_id, get_video_details, extract_chapters_from_text, get
 from jose import JWTError, jwt
 import google.generativeai as genai
 
+# Configure genai with API Key if available
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+
 # Warning in prod: dropping all is destructive
 # For dev we create_all, but we need to run external python script to reset db:
 # We'll just rely on create_all, user should recreate their local db
@@ -194,38 +199,59 @@ def execute_chat(request: schemas.ChatCreate, db: Session = Depends(database.get
         
     history = db.query(models.ChatHistory).filter(models.ChatHistory.session_id == session_obj.id).order_by(models.ChatHistory.id.asc()).all()
     
-    user_msg = models.ChatHistory(session_id=session_obj.id, role="user", content=request.message)
-    db.add(user_msg)
-    db.commit()
-    
     formatted_history = []
     
     # Always send all session transcripts joined as context to start the conversation memory
     notes = db.query(models.Note).filter(models.Note.session_id == session_obj.id).all()
     combined_transcripts = "\n\n".join([n.transcript for n in notes if n.transcript])
 
-    formatted_history.append({
-        "role": "user",
-        "parts": [{"text": f"Here is the context/transcript from all videos in this session:\n{combined_transcripts}\n\nPlease help me answer questions related to it. Important Rules for Answering: 1) Use Markdown tables to organize data when comparing information or lists. 2) When explaining complex concepts, architectures, or workflows, PLEASE include a Mermaid.js diagram using ```mermaid code blocks. 3) Always provide clear, well-formatted markdown. 4) For Mermaid diagrams, ONLY use `graph TD` style flowcharts and avoid using square brackets `[` or `]` inside node text; use round brackets instead."}]
-    })
-    formatted_history.append({
-         "role": "model",
-         "parts": [{"text": "Understood! I will use Mermaid.js diagrams and Markdown tables in my responses when applicable. Let me know what questions you have about the video context."}]
-    })
-    
-    for h in history:
-        formatted_history.append({"role": h.role, "parts": [{"text": h.content}]})
+    # Start history with the context only if history is empty, otherwise just load DB history
+    if not history:
+        formatted_history.append({
+            "role": "user",
+            "parts": [{"text": f"Here is the context/transcript from all videos in this session:\n{combined_transcripts}\n\nPlease help me answer questions related to it. Important Rules for Answering: 1) Use Markdown tables to organize data when comparing information or lists. 2) When explaining complex concepts, architectures, or workflows, PLEASE include a Mermaid.js diagram using ```mermaid code blocks. 3) Always provide clear, well-formatted markdown. 4) For Mermaid diagrams, ONLY use `graph TD` style flowcharts and avoid using square brackets `[` or `]` inside node text; use round brackets instead."}]
+        })
+        formatted_history.append({
+             "role": "model",
+             "parts": [{"text": "Understood! I will use Mermaid.js diagrams and Markdown tables in my responses when applicable. Let me know what questions you have about the video context."}]
+        })
+    else:
+        # If we have history, we provide the context in a way that doesn't break the User->Model sequence
+        # We'll prepend the context to the VERY FIRST user message in the history if it exists
+        first_user_idx = -1
+        for i, h in enumerate(history):
+            if h.role == "user":
+                first_user_idx = i
+                break
+        
+        if first_user_idx != -1:
+            for i, h in enumerate(history):
+                content = h.content
+                if i == first_user_idx:
+                    content = f"CONTEXT (Videos):\n{combined_transcripts}\n\n---\n\nUSER QUESTION:\n{content}"
+                formatted_history.append({"role": "user" if h.role == "user" else "model", "parts": [{"text": content}]})
+        else:
+            # Fallback if no history yet (though history check handles this)
+            formatted_history.append({"role": "user", "parts": [{"text": f"Context: {combined_transcripts}"}]})
+            formatted_history.append({"role": "model", "parts": [{"text": "Context received."}]})
 
     try:
-        model = genai.GenerativeModel("gemini-flash-latest")
+        # Using gemini-flash-latest for chat to ensure compatibility and adhere to requirements
+        model = genai.GenerativeModel("gemini-flash-latest") 
         chat = model.start_chat(history=formatted_history)
         response = chat.send_message(request.message)
         
+        # Save both messages to DB after successful API call
+        user_msg = models.ChatHistory(session_id=session_obj.id, role="user", content=request.message)
+        db.add(user_msg)
+        
         model_msg = models.ChatHistory(session_id=session_obj.id, role="model", content=response.text)
         db.add(model_msg)
+        
         db.commit()
         db.refresh(model_msg)
         
         return model_msg
     except Exception as e:
+        print(f"CHAT ERROR: {str(e)}") # Add logging for debug
         raise HTTPException(status_code=500, detail=str(e))

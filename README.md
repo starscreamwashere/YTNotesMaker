@@ -12,12 +12,13 @@ Make sure you have installed on your computer:
 - **Node.js 18+**
 - **Git**
 
-### Step 1: Get Your Free API Keys & Database
-To run this application, you need three free credentials. Create them and keep them handy:
+### Step 1: Get Your Free API Keys & Setup Database
+To run this application, you need three credentials. Create them and keep them handy:
 
 1. **Google Gemini API Key:** Go to [Google AI Studio](https://aistudio.google.com/app/apikey) and click "Create API Key".
 2. **YouTube Data v3 API Key:** Go to [Google Cloud Console](https://console.cloud.google.com/), create a project, enable the "YouTube Data API v3", and generate an API Key.
-3. **Database URL:** Go to [Neon.tech](https://neon.tech/), create a free account, make a new project, and copy the `Postgres connection string` (it looks like `postgresql://...`).
+3. **Local PostgreSQL:** Install PostgreSQL on your computer (e.g., using Postgres.app for Mac or pgAdmin for Windows). Create a database named `YtNotes`.
+   - Your `DATABASE_URL` will look like: `postgresql://username:password@localhost:5432/YtNotes`
 
 ### Step 2: Set up the Backend (Python/FastAPI)
 
@@ -45,7 +46,7 @@ To run this application, you need three free credentials. Create them and keep t
    ```env
    YOUTUBE_API_KEY="your_youtube_api_key_here"
    GEMINI_API_KEY="your_gemini_api_key_here"
-   DATABASE_URL="your_neon_postgres_url_here"
+   DATABASE_URL="postgresql://username:password@localhost:5432/YtNotes"
    ```
 
 6. Start the server!

@@ -49,6 +49,39 @@ const Mermaid = ({ chart }: { chart: string }) => {
   );
 };
 
+// Optimized Chat Input Component to prevent dashboard re-renders while typing
+const ChatInput = ({ onSend, disabled }: { onSend: (msg: string) => void, disabled: boolean }) => {
+  const [message, setMessage] = useState('');
+
+  const handleSend = () => {
+    if (message.trim()) {
+      onSend(message);
+      setMessage('');
+    }
+  };
+
+  return (
+    <div className="p-4 border-t border-zinc-800 bg-zinc-900 flex items-center gap-2">
+      <input 
+        type="text" 
+        placeholder="Ask anything about these videos..." 
+        value={message}
+        onKeyDown={e => e.key === 'Enter' && handleSend()}
+        onChange={e => setMessage(e.target.value)}
+        className="flex-1 px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:outline-none"
+        disabled={disabled}
+      />
+      <button 
+        onClick={handleSend} 
+        disabled={disabled || !message.trim()}
+        className="p-2 bg-blue-600 rounded-lg hover:bg-blue-500 disabled:opacity-50 transition"
+      >
+        <Send className="w-5 h-5" />
+      </button>
+    </div>
+  );
+};
+
 export default function Dashboard() {
 
   const fetchSessions = async () => {
@@ -124,7 +157,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [notes, setNotes] = useState<any[]>([]); // array of notes
-  const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -236,12 +268,11 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  const handleSendMessage = async () => {
-    if (!chatMessage.trim() || !activeSessionId) return;
+  const handleSendMessage = async (msg: string) => {
+    if (!msg.trim() || !activeSessionId) return;
     
-    const newMsg = { role: 'user', content: chatMessage };
+    const newMsg = { role: 'user', content: msg };
     setChatHistory(prev => [...prev, newMsg]);
-    setChatMessage('');
 
     try {
       const token = localStorage.getItem('token');
@@ -441,26 +472,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="p-4 border-t border-zinc-800 bg-zinc-950">
-            <div className="flex bg-zinc-800 rounded-lg overflow-hidden border border-zinc-700 focus-within:border-blue-500">
-              <input 
-                type="text" 
-                placeholder="Ask about this session..." 
-                value={chatMessage}
-                onChange={e=>setChatMessage(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                disabled={notes.length === 0}
-                className="flex-1 bg-transparent px-4 py-3 focus:outline-none disabled:opacity-50"
-              />
-              <button 
-                onClick={handleSendMessage}
-                disabled={notes.length === 0 || !chatMessage.trim()}
-                className="px-4 text-blue-500 hover:text-blue-400 rounded-r-lg bg-zinc-800 disabled:opacity-50"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+          <ChatInput onSend={handleSendMessage} disabled={notes.length === 0} />
         </div>
       </div>
 

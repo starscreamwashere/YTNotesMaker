@@ -6,8 +6,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Use a default PostgreSQL URL or load from environment
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgressetup30@localhost:5432/YtNotes")
+# Load from environment variable (ensure DATABASE_URL is set in .env)
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not SQLALCHEMY_DATABASE_URL:
+    # Optional: help user identify the issue locally
+    print("WARNING: DATABASE_URL not found in environment. Defaulting to local postgres for development.")
+    SQLALCHEMY_DATABASE_URL = "postgresql://postgres@localhost:5432/YtNotes"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
